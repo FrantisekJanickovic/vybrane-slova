@@ -99,6 +99,12 @@ export function TrainingSettings() {
         <span>tréningoch za sebou bez chyby.</span>
       </div>
       <Toggle
+        checked={cfg.allowExit}
+        onChange={(v) => set("allowExit", v)}
+        label="Dieťa môže ukončiť tréning"
+        description="Krížik vľavo hore počas tréningu. Nedokončený tréning sa neuloží ani nevyhodnotí."
+      />
+      <Toggle
         checked={cfg.encouragement}
         onChange={(v) => set("encouragement", v)}
         label="Povzbudzovanie počas tréningu"

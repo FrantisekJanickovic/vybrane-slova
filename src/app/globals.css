@@ -139,29 +139,21 @@ body {
   opacity: 0.45;
 }
 
-/* gap in a phrase */
+/* gap in a phrase: reads as r_ha, not a box */
 .gap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.6em;
-  height: 1.35em;
-  margin: 0 0.04em;
-  padding: 0 0.12em;
-  border-radius: 0.35em;
-  background: var(--color-sun-soft);
-  border: 2px dashed var(--color-sun-deep);
-  vertical-align: baseline;
-  line-height: 1;
+  display: inline-block;
+  min-width: 1.05ch;
+  margin: 0 0.06em;
+  border-bottom: 0.14em solid var(--color-sun-deep);
+  line-height: 0.95;
+  text-align: center;
 }
 .gap-ok {
-  background: var(--color-leaf-soft);
-  border: 2px solid var(--color-leaf);
+  border-bottom-color: var(--color-leaf);
   color: var(--color-leaf);
 }
 .gap-bad {
-  background: var(--color-tomato-soft);
-  border: 2px solid var(--color-tomato);
+  border-bottom-color: var(--color-tomato);
   color: var(--color-tomato);
 }
 

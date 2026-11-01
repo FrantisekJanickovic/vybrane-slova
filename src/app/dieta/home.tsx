@@ -66,7 +66,7 @@ export default function ChildHome() {
     try {
       localStorage.setItem(key(id), JSON.stringify({ letters: chosen, count }));
     } catch {}
-    router.push(`/trening?child=${id}&letters=${chosen.join(",")}&count=${count}`);
+    router.push(`/trening?child=${id}&letters=${chosen.join(",")}&count=${count}&t=${Date.now().toString(36)}`);
   }
 
   return (

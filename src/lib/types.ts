@@ -64,4 +64,6 @@ export type Config = {
   /** at most this many open problem words are added to one training */
   maxProblemWords: number;
   encouragement: boolean;
+  /** show the child a button that ends the training early */
+  allowExit: boolean;
 };
