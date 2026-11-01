@@ -4,6 +4,7 @@ import { authHeader } from "./supabase";
 import type { Letter } from "./types";
 
 export type Generated = { selected: { word: string; phrases: string[] }[]; other: { word: string; phrases: string[] }[] };
+export type GenerateOptions = { mode?: "replace" | "add"; kind?: "y" | "i" | "both"; count?: number; avoid?: string[] };
 
 export async function aiInfo(): Promise<{ ai: boolean; model: string | null }> {
   try {
@@ -15,11 +16,11 @@ export async function aiInfo(): Promise<{ ai: boolean; model: string | null }> {
   }
 }
 
-export async function generate(letter: Letter): Promise<Generated> {
+export async function generate(letter: Letter, opts: GenerateOptions = {}): Promise<Generated> {
   const res = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await authHeader()) },
-    body: JSON.stringify({ letter }),
+    body: JSON.stringify({ letter, ...opts }),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error ?? `Chyba ${res.status}`);

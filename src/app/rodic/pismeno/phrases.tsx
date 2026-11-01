@@ -4,8 +4,8 @@ import { Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button, Card, ErrorNote, Input, cx } from "@/components/ui";
 import type { Letter } from "@/data/words";
-import { generate } from "@/lib/ai";
-import { candidates, collate, kindOf, markAt, markPos, parse, plain, validate } from "@/lib/phrase";
+import { generate, type Generated } from "@/lib/ai";
+import { candidates, collate, kindOf, lower, markAt, markPos, parse, plain, validate } from "@/lib/phrase";
 import { supabase } from "@/lib/supabase";
 import type { Kind, Phrase, WordRow } from "@/lib/types";
 
@@ -151,7 +151,9 @@ export function guessWord(plainText: string, pos: number, words: WordRow[], kind
 
 export function PhrasesPanel({ letter, words, phrases, onChange }: { letter: Letter; words: WordRow[]; phrases: Phrase[]; onChange: () => Promise<void> }) {
   const [editing, setEditing] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"replace" | "add" | null>(null);
+  const [addKind, setAddKind] = useState<"y" | "i" | "both">("y");
+  const [addCount, setAddCount] = useState(20);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const groups = useMemo(
@@ -163,24 +165,59 @@ export function PhrasesPanel({ letter, words, phrases, onChange }: { letter: Let
     [phrases],
   );
 
+  /** Generated phrases as rows, skipping any the letter already has. */
+  function toRows(g: Generated, taken: Set<string>) {
+    const byWord = new Map(words.map((w) => [w.word, w.id]));
+    const out: { letter: Letter; text: string; kind: Kind; word: string; word_id: string | null; source: "ai" }[] = [];
+    const add = (word: string, texts: string[], kind: Kind) => {
+      for (const text of texts) {
+        const k = lower(plain(text));
+        if (taken.has(k)) continue;
+        taken.add(k);
+        out.push({ letter, text, kind, word, word_id: kind === "y" ? (byWord.get(word) ?? null) : null, source: "ai" });
+      }
+    };
+    for (const x of g.selected) add(x.word, x.phrases, "y");
+    for (const x of g.other) add(x.word, x.phrases, "i");
+    return out;
+  }
+
+  /** Add more phrases for this letter without touching the ones that are already there. */
+  async function addMore() {
+    setBusy("add");
+    setError(null);
+    setInfo(null);
+    try {
+      const g = await generate(letter, { mode: "add", kind: addKind, count: addCount, avoid: phrases.map((p) => p.text) });
+      const rows = toRows(g, new Set(phrases.map((p) => lower(plain(p.text)))));
+      if (!rows.length) throw new Error("AI nevrátila žiadne nové spojenie. Skús to znova.");
+      const { error } = await supabase().from("vs_phrases").insert(rows);
+      if (error) throw error;
+      await onChange();
+      const y = rows.filter((r) => r.kind === "y").length;
+      setInfo(
+        `Pridané: ${rows.length} ${rows.length === 1 ? "nové spojenie" : rows.length < 5 ? "nové spojenia" : "nových spojení"} (${y} vybraných, ${rows.length - y} nevybraných).` +
+          (rows.length < addCount ? ` Z ${addCount} žiadaných boli ostatné duplicitné alebo chybné.` : ""),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Generovanie zlyhalo.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function regenerate() {
     if (
       phrases.length &&
       !window.confirm(`Zmazať všetkých ${phrases.length} slovných spojení pre ${letter.toUpperCase()} (aj ručne upravené) a vygenerovať nové?`)
     )
       return;
-    setBusy(true);
+    setBusy("replace");
     setError(null);
     setInfo(null);
     try {
       const g = await generate(letter);
-      const byWord = new Map(words.map((w) => [w.word, w.id]));
-      const rows = [
-        ...g.selected.flatMap((s) =>
-          s.phrases.map((text) => ({ letter, text, kind: "y" as const, word: s.word, word_id: byWord.get(s.word) ?? null, source: "ai" as const })),
-        ),
-        ...g.other.flatMap((o) => o.phrases.map((text) => ({ letter, text, kind: "i" as const, word: o.word, word_id: null, source: "ai" as const }))),
-      ];
+      const rows = toRows(g, new Set());
       const sb = supabase();
       const del = await sb.from("vs_phrases").delete().eq("letter", letter);
       if (del.error) throw del.error;
@@ -192,7 +229,7 @@ export function PhrasesPanel({ letter, words, phrases, onChange }: { letter: Let
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generovanie zlyhalo.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -212,14 +249,44 @@ export function PhrasesPanel({ letter, words, phrases, onChange }: { letter: Let
 
   return (
     <Card className="p-4 sm:p-5 space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-black mr-auto">Slovné spojenia ({phrases.length})</h2>
-        <Button size="sm" variant="outline" onClick={() => setEditing("new")} disabled={editing === "new"}>
-          <Plus className="size-4" /> Pridať
-        </Button>
-        <Button size="sm" variant="sun" onClick={regenerate} loading={busy}>
-          <Sparkles className="size-4" /> {phrases.length ? "Generovať nanovo" : "Generovať"}
-        </Button>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-black mr-auto">Slovné spojenia ({phrases.length})</h2>
+          <Button size="sm" variant="outline" onClick={() => setEditing("new")} disabled={editing === "new"}>
+            <Plus className="size-4" /> Pridať
+          </Button>
+          <Button size="sm" variant="sun" onClick={regenerate} loading={busy === "replace"} disabled={!!busy}>
+            <Sparkles className="size-4" /> {phrases.length ? "Generovať nanovo" : "Generovať"}
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-paper px-2 py-2">
+          <Button size="sm" variant="leaf" onClick={addMore} loading={busy === "add"} disabled={!!busy}>
+            <Plus className="size-4" /> Generovať ďalšie
+          </Button>
+          <select
+            value={addKind}
+            onChange={(e) => setAddKind(e.target.value as "y" | "i" | "both")}
+            aria-label="Typ nových spojení"
+            className="h-9 rounded-xl border-2 border-line bg-card px-2 text-sm font-bold"
+          >
+            <option value="y">vybrané slová</option>
+            <option value="i">nevybrané slová (s i)</option>
+            <option value="both">oboje</option>
+          </select>
+          <select
+            value={addCount}
+            onChange={(e) => setAddCount(Number(e.target.value))}
+            aria-label="Počet nových spojení"
+            className="h-9 rounded-xl border-2 border-line bg-card px-2 text-sm font-bold"
+          >
+            {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-slate font-semibold">Doplní nové spojenia k tým, ktoré tu už sú.</span>
+        </div>
       </div>
       {busy && <p className="text-sm text-slate font-semibold">AI píše slovné spojenia, trvá to asi minútu…</p>}
       {error && <ErrorNote>{error}</ErrorNote>}

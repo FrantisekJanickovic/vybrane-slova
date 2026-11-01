@@ -11,6 +11,9 @@ import type { Phrase, WordRow } from "@/lib/types";
 import { PhrasesPanel } from "./phrases";
 import { ProblemsPanel } from "./problems";
 
+/** The rules the word list comes from; the lists are in the chapter on writing i/í and y/ý. */
+const PSP_URL = "https://www.juls.savba.sk/ediela/psp2000/psp.pdf";
+
 export default function LetterConfig() {
   const l = useSearchParams().get("l") as Letter;
   const letter: Letter = (LETTERS as string[]).includes(l) ? l : "b";
@@ -60,7 +63,13 @@ export default function LetterConfig() {
 
       <Card className="p-4 sm:p-5">
         <h2 className="text-lg font-black">Zoznam ({words.length})</h2>
-        <p className="text-xs text-slate mb-3">Podľa Pravidiel slovenského pravopisu. Šedé sú príbuzné slová.</p>
+        <p className="text-xs text-slate mb-3">
+          Šedé sú príbuzné slová. Zdroj:{" "}
+          <a href={PSP_URL} target="_blank" rel="noreferrer" className="font-bold text-sky underline">
+            Pravidlá slovenského pravopisu (JÚĽŠ SAV)
+          </a>
+          , časť o písaní i/y po obojakých spoluhláskach.
+        </p>
         <ul className="flex flex-wrap gap-2" aria-label="Zoznam vybraných slov">
           {words.map((w) => (
             <li key={w.id} className="rounded-xl bg-paper border border-line px-2.5 py-1.5 text-sm">
