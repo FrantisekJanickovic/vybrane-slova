@@ -9,6 +9,7 @@ import { LETTERS, type Letter } from "@/data/words";
 import { ensureSeeded, loadPhrases, loadProblems, loadWords } from "@/lib/data";
 import type { Phrase, WordRow } from "@/lib/types";
 import { PhrasesPanel } from "./phrases";
+import { LetterTools } from "./tools";
 import { ProblemsPanel } from "./problems";
 
 /** The rules the word list comes from; the lists are in the chapter on writing i/í and y/ý. */
@@ -79,6 +80,9 @@ export default function LetterConfig() {
             </li>
           ))}
         </ul>
+        <div className="mt-4">
+          <LetterTools letter={letter} words={words} phrases={phrases} onWords={setWords} onPhrases={reload} />
+        </div>
       </Card>
 
       <Segmented

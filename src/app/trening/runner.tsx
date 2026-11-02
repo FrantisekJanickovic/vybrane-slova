@@ -11,6 +11,7 @@ import { getChild, loadPhrases, loadProblems } from "@/lib/data";
 import { kindOf, parse, plain, swap, tokens, withLetter } from "@/lib/phrase";
 import { buildPlan, COUNTS, repeatFor, wordKey, type Item, type Plan, type Question } from "@/lib/plan";
 import { problemUpdates, type Tally } from "@/lib/problems";
+import { playAnswer } from "@/lib/sounds";
 import { supabase } from "@/lib/supabase";
 import type { Child, Config, Kind, LetterScore, Phrase, Problem } from "@/lib/types";
 import { Summary, type SummaryData } from "./summary";
@@ -40,27 +41,33 @@ function PhraseText({ text, shown, state }: { text: string; shown: string | null
   );
 }
 
-function FillQuestion({ item, onAnswer, onNext }: { item: Item; onAnswer: (kind: Kind) => boolean; onNext: () => void }) {
+function FillQuestion({ item, config, onAnswer, onNext }: { item: Item; config: Config; onAnswer: (kind: Kind) => boolean; onNext: () => void }) {
   const [picked, setPicked] = useState<Kind | null>(null);
   const [correct, setCorrect] = useState<boolean | null>(null);
-  const target = parse(item.phrase.text)!.target;
+  const [retyped, setRetyped] = useState(false);
+  const p = parse(item.phrase.text)!;
+  const target = p.target;
   // only the length that fits this phrase is offered, so the choice is just y or i
   const letters: Record<Kind, string> = "ýí".includes(target) ? { y: "ý", i: "í" } : { y: "y", i: "i" };
+  const wrong = picked !== null && !correct;
+  const askRetype = wrong && config.retype && !retyped;
 
   function answer(k: Kind) {
     if (picked) return;
     setPicked(k);
-    setCorrect(onAnswer(k));
+    const ok = onAnswer(k);
+    setCorrect(ok);
+    if (config.sounds) playAnswer(ok);
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-center text-sm font-bold text-slate">{item.repeat ? "Ešte raz toto slovo" : `Doplň ${letters.y} alebo ${letters.i}`}</p>
-      <Card className={cx("px-4 py-9 border-2 border-b-[6px]", correct === false && "anim-shake")}>
+      <p className="text-center text-base font-bold text-slate">{item.repeat ? "Ešte raz toto slovo" : `Doplň ${letters.y} alebo ${letters.i}`}</p>
+      <Card className={cx("px-4 py-9 border-2 border-b-[6px]", wrong && "anim-shake")}>
         <PhraseText text={item.phrase.text} shown={picked ? target : null} state={picked ? (correct ? "ok" : "bad") : "ask"} />
       </Card>
 
-      {!picked ? (
+      {!picked && (
         <div className="grid grid-cols-2 gap-4">
           {(["y", "i"] as Kind[]).map((k) => (
             <button
@@ -76,20 +83,53 @@ function FillQuestion({ item, onAnswer, onNext }: { item: Item; onAnswer: (kind:
             </button>
           ))}
         </div>
-      ) : (
-        <>
-          <Button size="xl" variant={correct ? "leaf" : "primary"} onClick={onNext} autoFocus>
-            Ďalšie <ChevronRight className="size-6 -ml-1" />
-          </Button>
-          <div className="text-center space-y-1">
-            {!correct && (
-              <p className="font-bold text-tomato">
-                Nie „{withLetter(item.phrase.text, picked === kindOf(target) ? target : swap(target))}“, ale „{plain(item.phrase.text)}“.
-              </p>
-            )}
-            <p className="text-sm font-semibold text-slate anim-rise">{explain(item.phrase)}</p>
-          </div>
-        </>
+      )}
+
+      {picked && correct && (
+        <Button size="xl" variant="leaf" onClick={onNext} autoFocus>
+          Ďalšie <ChevronRight className="size-6 -ml-1" />
+        </Button>
+      )}
+
+      {picked && (
+        <div className="text-center space-y-2 anim-rise">
+          {wrong && (
+            <p className="text-xl font-black text-tomato leading-snug">
+              Nie „{withLetter(item.phrase.text, picked === kindOf(target) ? target : swap(target))}“, ale „{plain(item.phrase.text)}“.
+            </p>
+          )}
+          <p className="text-base font-semibold text-slate">{explain(item.phrase)}</p>
+        </div>
+      )}
+
+      {wrong && config.retype && (
+        <div className="rounded-3xl bg-sun-soft border-2 border-sun-deep/50 px-4 py-5 space-y-4">
+          <p className="text-center text-base font-bold text-ink">{retyped ? "Prečítaj si celé spojenie:" : "Doplň správne písmeno:"}</p>
+          {/* the same phrase in plain text, so the child reads it as one piece */}
+          <p className="text-[1.75rem] sm:text-[2rem] font-black leading-snug text-center break-words">
+            {p.before}
+            {retyped ? target : <span className="gap gap-plain">&nbsp;</span>}
+            {p.after}
+          </p>
+          {!retyped && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setRetyped(true)}
+                aria-label={`Doplniť ${target}`}
+                className="h-20 w-28 rounded-3xl bg-card border-2 border-b-[7px] border-sun-deep text-5xl font-black active:translate-y-[3px] active:border-b-4 transition"
+              >
+                {target}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {wrong && !askRetype && (
+        <Button size="xl" variant="primary" onClick={onNext} autoFocus>
+          Ďalšie <ChevronRight className="size-6 -ml-1" />
+        </Button>
       )}
     </div>
   );
@@ -129,8 +169,8 @@ function SpotQuestion({
   return (
     <div className="flex flex-col gap-5 flex-1">
       <div className="text-center">
-        <p className="font-black text-xl">Nájdi chybu</p>
-        <p className="text-sm font-semibold text-slate">
+        <p className="font-black text-2xl">Nájdi chybu</p>
+        <p className="text-base font-semibold text-slate">
           Je v niektorom slove chybné y alebo i? Ťukni na slovo s chybou. Ak je všetko dobre, stlač „Bez chyby“.
         </p>
       </div>
@@ -161,13 +201,13 @@ function SpotQuestion({
                 </button>
               );
             })}
-            {results && wrong[i] && <span className="text-sm font-bold text-leaf">správne: {tokens(items[i].phrase.text)[row.targetIdx]?.word}</span>}
-            {results && !results[i].correct && !wrong[i] && <span className="text-sm font-bold text-slate">toto spojenie bolo bez chyby</span>}
+            {results && wrong[i] && <span className="text-base font-bold text-leaf">správne: {tokens(items[i].phrase.text)[row.targetIdx]?.word}</span>}
+            {results && !results[i].correct && !wrong[i] && <span className="text-base font-bold text-slate">toto spojenie bolo bez chyby</span>}
           </div>
         ))}
       </Card>
       {results && (
-        <p className={cx("text-center font-bold anim-rise", allGood ? "text-leaf" : "text-tomato")}>
+        <p className={cx("text-center text-xl font-black anim-rise", allGood ? "text-leaf" : "text-tomato")}>
           {allGood ? (wrong.some(Boolean) ? "Chybu si našiel!" : "Áno, všetko bolo správne!") : "Pozri sa, kde bola chyba."}
         </p>
       )}
@@ -196,12 +236,16 @@ type Loaded = { child: Child; config: Config; plan: Plan; problems: Problem[]; l
 
 export default function Runner() {
   const params = useSearchParams();
-  const router = useRouter();
   const childId = params.get("child") ?? "";
   const letters = (params.get("letters") ?? "").split(",").filter((l): l is Letter => (LETTERS as string[]).includes(l));
   const count = COUNTS.includes(Number(params.get("count"))) ? Number(params.get("count")) : 20;
-  // every start carries its own token, so a training is never resumed where an earlier one stopped
-  const token = params.get("t") ?? "";
+  // every start carries its own token; the key makes sure a new start never shows the previous session
+  const sig = `${childId}|${letters.join(",")}|${count}|${params.get("t") ?? ""}`;
+  return <Session key={sig} childId={childId} letters={letters} count={count} />;
+}
+
+function Session({ childId, letters, count }: { childId: string; letters: Letter[]; count: number }) {
+  const router = useRouter();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [run, setRun] = useState(0);
@@ -221,7 +265,7 @@ export default function Runner() {
     return () => {
       off = true;
     };
-  }, [childId, lettersKey, count, run, token]);
+  }, [childId, lettersKey, count, run]);
 
   if (error)
     return (
@@ -243,7 +287,7 @@ export default function Runner() {
       />
     );
   if (!data) return <Spinner label="Pripravujem tréning…" />;
-  return <Training key={`${token}-${run}`} data={data} onFinish={setSummary} onExit={() => router.push(`/dieta?id=${childId}`)} />;
+  return <Training key={run} data={data} onFinish={setSummary} onExit={() => router.push(`/dieta?id=${childId}`)} />;
 }
 
 function Training({ data, onFinish, onExit }: { data: Loaded; onFinish: (s: SummaryData) => void; onExit: () => void }) {
@@ -338,6 +382,7 @@ function Training({ data, onFinish, onExit }: { data: Loaded; onFinish: (s: Summ
     });
     const all = results.every((r) => r.correct);
     if (all) spot.current.correct++;
+    if (config.sounds) playAnswer(all);
     react(all, all);
     return results;
   }
@@ -463,14 +508,14 @@ function Training({ data, onFinish, onExit }: { data: Loaded; onFinish: (s: Summ
         </span>
       </header>
 
-      <div className="min-h-14 flex items-center gap-2 mt-3" aria-live="polite">
+      <div className="min-h-16 flex items-center gap-2 mt-3" aria-live="polite">
         {bubble?.text && (
           <>
-            <span className="text-3xl">{child.avatar}</span>
+            <span className="text-4xl">{child.avatar}</span>
             <span
               key={bubble.text}
               className={cx(
-                "anim-bounce rounded-2xl px-3 py-2 font-bold text-sm",
+                "anim-bounce rounded-2xl px-3.5 py-2.5 font-black text-base leading-snug",
                 bubble.tone === "good" ? "bg-leaf-soft text-leaf" : bubble.tone === "soft" ? "bg-sun-soft text-ink" : "bg-sky-soft text-ink",
               )}
             >
@@ -482,7 +527,7 @@ function Training({ data, onFinish, onExit }: { data: Loaded; onFinish: (s: Summ
 
       <div className="flex-1 flex flex-col py-3">
         {q.type === "fill" ? (
-          <FillQuestion key={q.item.key} item={q.item} onAnswer={(k) => onFill(q.item, k)} onNext={() => next(idx)} />
+          <FillQuestion key={q.item.key} item={q.item} config={config} onAnswer={(k) => onFill(q.item, k)} onNext={() => next(idx)} />
         ) : (
           <SpotQuestion
             key={q.items.map((i) => i.key).join("|")}

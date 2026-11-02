@@ -105,6 +105,18 @@ export function TrainingSettings() {
         description="Krížik vľavo hore počas tréningu. Nedokončený tréning sa neuloží ani nevyhodnotí."
       />
       <Toggle
+        checked={cfg.retype}
+        onChange={(v) => set("retype", v)}
+        label="Po chybe doplniť písmeno ešte raz"
+        description="Dieťa uvidí to isté spojenie s medzerou a jedno tlačidlo so správnym písmenom. Po doplnení si prečíta celé spojenie naraz."
+      />
+      <Toggle
+        checked={cfg.sounds}
+        onChange={(v) => set("sounds", v)}
+        label="Tiché zvuky pri odpovedi"
+        description="Krátky tón po správnej a po nesprávnej odpovedi."
+      />
+      <Toggle
         checked={cfg.encouragement}
         onChange={(v) => set("encouragement", v)}
         label="Povzbudzovanie počas tréningu"

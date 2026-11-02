@@ -26,9 +26,13 @@ function shuffle<T>(a: T[], rand: Rand): T[] {
   return out;
 }
 
-/** Pick `quota` phrases: problem words first, each word 2–3 times (i-words 1–2 times), in different phrases. */
+/**
+ * Pick `quota` phrases for one group of words: problem words first, then the rest.
+ * A word is practised `per[0]` to `per[1]` times, each time in a different phrase; a word is used
+ * only once when it has a single phrase or when nothing else can take the last slot.
+ */
 function pick(groups: Map<string, Phrase[]>, quota: number, first: string[], per: [number, number], rand: Rand): Phrase[] {
-  const keys = [
+  const order = [
     ...first.filter((k) => groups.has(k)),
     ...shuffle(
       [...groups.keys()].filter((k) => !first.includes(k)),
@@ -36,29 +40,50 @@ function pick(groups: Map<string, Phrase[]>, quota: number, first: string[], per
     ),
   ];
   const left = new Map([...groups].map(([k, v]) => [k, shuffle(v, rand)]));
-  const out: Phrase[] = [];
-  const used: string[] = [];
-  for (const k of keys) {
-    const room = quota - out.length;
-    // a word should come at least `per[0]` times; a smaller remainder goes to words already chosen
-    if (room < Math.min(per[0], left.get(k)!.length) || room <= 0) break;
-    const n = first.includes(k) ? per[1] : per[0] + Math.floor(rand() * (per[1] - per[0] + 1));
-    out.push(...left.get(k)!.splice(0, Math.min(n, room)));
-    used.push(k);
+  const take = new Map<string, number>();
+  let total = 0;
+  const give = (k: string, n: number) => {
+    take.set(k, (take.get(k) ?? 0) + n);
+    total += n;
+  };
+  const free = (k: string) => left.get(k)!.length;
+
+  // give each word its block, as long as a whole block still fits; words with a single phrase wait
+  for (const k of order) {
+    if (total >= quota) break;
+    if (free(k) < per[0]) continue;
+    const block = Math.min(first.includes(k) ? per[1] : per[0], free(k));
+    if (block > quota - total) break;
+    give(k, block);
   }
-  // fill the rest with further phrases of the chosen words, then of any word
-  for (const pool of [used, keys])
-    for (let added = true; added && out.length < quota;) {
-      added = false;
-      for (const k of pool) {
-        if (out.length >= quota) break;
-        const next = left.get(k)!.shift();
-        if (next) {
-          out.push(next);
-          added = true;
-        }
+  // the rest: first more phrases of the words already in, then another word, then a fourth phrase
+  let cap = per[1];
+  while (total < quota) {
+    let moved = false;
+    for (const k of [...take.keys()]) {
+      if (total >= quota) break;
+      if (take.get(k)! < Math.min(cap, free(k))) {
+        give(k, 1);
+        moved = true;
       }
     }
+    if (moved) continue;
+    const room = quota - total;
+    const next = order.find((k) => !take.has(k) && free(k) > 0 && Math.min(per[0], free(k)) <= room);
+    if (next) {
+      give(next, Math.min(per[0], free(next)));
+      continue;
+    }
+    if (cap < per[1] + 6) {
+      cap++;
+      continue;
+    }
+    const any = order.find((k) => !take.has(k) && free(k) > 0);
+    if (!any) break;
+    give(any, Math.min(free(any), room));
+  }
+  const out: Phrase[] = [];
+  for (const [k, n] of take) out.push(...left.get(k)!.splice(0, n));
   return out;
 }
 

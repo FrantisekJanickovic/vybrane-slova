@@ -54,6 +54,10 @@ export type SessionRow = {
   created_at: string;
 };
 
+/** One thing the AI found when checking a letter. */
+export type CheckIssue = { kind: "word" | "phrase"; text: string; problem: string; fix?: string };
+export type LetterCheck = { at: string; issues: CheckIssue[]; words: number; phrases: number };
+
 export type Config = {
   /** trainings in a row without a mistake before a problem word counts as mastered */
   masteryStreak: number;
@@ -66,4 +70,8 @@ export type Config = {
   encouragement: boolean;
   /** show the child a button that ends the training early */
   allowExit: boolean;
+  /** after a mistake, let the child fill the letter in once more, with only the right letter offered */
+  retype: boolean;
+  /** quiet sounds for right and wrong answers */
+  sounds: boolean;
 };

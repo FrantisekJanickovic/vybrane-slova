@@ -1,9 +1,9 @@
 "use client";
 
 import { SEED } from "@/data/seed-phrases";
-import { LETTERS, type Letter } from "@/data/words";
+import { LETTERS, WORDS, type Letter } from "@/data/words";
 import { supabase } from "./supabase";
-import type { Child, Phrase, Problem, SessionRow, WordRow } from "./types";
+import type { Child, LetterCheck, Phrase, Problem, SessionRow, WordRow } from "./types";
 
 export async function listChildren(): Promise<Child[]> {
   const { data, error } = await supabase().from("children").select("id, name, avatar, grade").order("created_at");
@@ -96,4 +96,37 @@ export function ensureSeeded(): Promise<void> {
       throw e;
     });
   return seeding;
+}
+
+/** Add the words of this letter that the database does not have yet, from the list in the app. */
+export async function syncWords(letter: Letter): Promise<{ added: number; total: number; words: WordRow[] }> {
+  const have = await loadWords(letter);
+  const known = new Set(have.map((w) => w.word));
+  const missing = WORDS[letter]
+    .map((w, i) => ({ letter, word: w.word, related: w.related ?? null, note: w.note ?? null, position: i + 1 }))
+    .filter((w) => !known.has(w.word));
+  if (missing.length) {
+    const { error } = await supabase().from("vs_words").insert(missing);
+    if (error) throw error;
+  }
+  const words = missing.length ? await loadWords(letter) : have;
+  return { added: missing.length, total: words.length, words };
+}
+
+export async function loadChecks(): Promise<Partial<Record<Letter, LetterCheck>>> {
+  const { data } = await supabase().from("vs_settings").select("checks").maybeSingle();
+  const raw = (data?.checks ?? {}) as Record<string, LetterCheck>;
+  return Object.fromEntries(Object.entries(raw).filter(([k]) => (LETTERS as string[]).includes(k)));
+}
+
+/** Keep the result of the last check of one letter; the other letters stay as they are. */
+export async function saveCheck(letter: Letter, check: LetterCheck) {
+  const sb = supabase();
+  const { data: u } = await sb.auth.getUser();
+  if (!u.user) throw new Error("Nie si prihlásený.");
+  const current = await loadChecks();
+  const { error } = await sb
+    .from("vs_settings")
+    .upsert({ owner_id: u.user.id, checks: { ...current, [letter]: check }, updated_at: new Date().toISOString() }, { onConflict: "owner_id" });
+  if (error) throw error;
 }
