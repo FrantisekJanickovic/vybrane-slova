@@ -3,7 +3,16 @@
 import { supabase } from "./supabase";
 import type { Config } from "./types";
 
-export const DEFAULT_CONFIG: Config = { masteryStreak: 3, otherShare: 35, spotEvery: 6, maxProblemWords: 8, encouragement: true, allowExit: true };
+export const DEFAULT_CONFIG: Config = {
+  masteryStreak: 3,
+  otherShare: 35,
+  spotEvery: 6,
+  maxProblemWords: 8,
+  encouragement: true,
+  allowExit: true,
+  retype: true,
+  sounds: true,
+};
 
 export const LIMITS = {
   masteryStreak: [1, 10],
@@ -24,6 +33,8 @@ export function mergeConfig(raw: unknown): Config {
     maxProblemWords: clamp(r.maxProblemWords, LIMITS.maxProblemWords, DEFAULT_CONFIG.maxProblemWords),
     encouragement: typeof r.encouragement === "boolean" ? r.encouragement : DEFAULT_CONFIG.encouragement,
     allowExit: typeof r.allowExit === "boolean" ? r.allowExit : DEFAULT_CONFIG.allowExit,
+    retype: typeof r.retype === "boolean" ? r.retype : DEFAULT_CONFIG.retype,
+    sounds: typeof r.sounds === "boolean" ? r.sounds : DEFAULT_CONFIG.sounds,
   };
 }
 

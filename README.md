@@ -7,7 +7,8 @@ Rodinná appka na precvičovanie vybraných slov (y/ý – i/í) pre deti zákla
 - **Tréning:** dieťa vyberie písmená (dlaždice B, M, P, R, S, V, Z ostanú stlačené) a počet slovných spojení (20 až 100 po desiatkach). Chýbajúce písmeno je v spojení ako medzera: „r_ha na lavici“. Na výber sú dve tlačidlá, vždy len jedna dĺžka: **y/i** alebo **ý/í**. Po odpovedi sa doplnené písmeno ukáže v spojení a pokračuje sa tlačidlom **Ďalšie**. Medzi vybrané slová sú zamiešané aj nevybrané slová s i/í.
 - **Každé vybrané slovo 2–3×** v jednom tréningu, v rôznych tvaroch a spojeniach (nový byt, v našom byte…), nikdy hneď za sebou.
 - **Nájdi chybu:** pravidelne príde úloha s troma vyplnenými spojeniami; dieťa ťukne na slová s chybným y/i (aj viac naraz) alebo stlačí „Bez chyby“.
-- **Chyby:** slovo s chybou sa vráti ešte v tom istom tréningu a uloží sa ako problémové. V ďalších tréningoch príde častejšie; po niekoľkých tréningoch bez chyby sa samo označí ako zvládnuté.
+- **Chyby:** dieťa uvidí veľkým písmom, ako to má byť správne, a prečo. Potom doplní písmeno ešte raz do toho istého spojenia, pričom má na výber len jedno, správne písmeno; doplnené spojenie si prečíta ako jednoliaty text (dá sa vypnúť). Slovo s chybou sa vráti ešte v tom istom tréningu a uloží sa ako problémové. V ďalších tréningoch príde častejšie; po niekoľkých tréningoch bez chyby sa samo označí ako zvládnuté.
+- **Tiché zvuky** po správnej a nesprávnej odpovedi (vypínateľné), generované v prehliadači, bez súborov.
 - **Povzbudzovanie:** pochvaly, série správnych odpovedí, hviezdičky a konfety v súhrne (vypínateľné).
 - **Ukončenie tréningu:** malý krížik vľavo hore, dá sa vypnúť v rodičovských nastaveniach. Nedokončený tréning sa neuloží ani nevyhodnotí a ďalší tréning vždy začína odznova.
 - **Moje výsledky:** história podľa písmen so skóre a grafom zlepšovania.
